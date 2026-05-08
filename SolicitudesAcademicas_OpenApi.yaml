@@ -1,0 +1,355 @@
+openapi: 3.0.3
+info:
+  title: API de Gestión de Solicitudes Académicas
+  description: >
+    API REST para la gestión del ciclo de vida de solicitudes académicas.
+    Implementa control de estados, acciones transaccionales y asistencia de clasificación por IA desacoplada.
+  version: 1.0.0
+  contact:
+    name: Equipo de Desarrollo
+    email: soporte@universidad.edu
+
+servers:
+  - url: /api/v1
+
+tags:
+  - name: Solicitudes
+  - name: Acciones
+  - name: Usuarios
+  - name: Eventos
+  - name: Asistencias
+
+paths:
+
+  /solicitudes:
+    get:
+      tags: [Solicitudes]
+      summary: Listar solicitudes con filtros
+      parameters:
+        - in: query
+          name: estado
+          schema:
+            $ref: '#/components/schemas/EstadoSolicitud'
+        - in: query
+          name: prioridad
+          schema:
+            $ref: '#/components/schemas/Prioridad'
+        - in: query
+          name: tipo
+          schema:
+            type: integer
+        - in: query
+          name: responsable
+          schema:
+            type: integer
+        - in: query
+          name: fechaInicio
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: fechaFin
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: pagina
+          schema:
+            type: integer
+            default: 0
+        - in: query
+          name: tamanio
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Lista paginada de solicitudes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RespuestaPaginadaSolicitudes'
+
+    post:
+      tags: [Solicitudes]
+      summary: Crear nueva solicitud
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrearSolicitudRequest'
+      responses:
+        '201':
+          description: Solicitud registrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Solicitud'
+
+  /solicitudes/{id}:
+    get:
+      tags: [Solicitudes]
+      summary: Obtener detalle de solicitud
+      parameters:
+        - $ref: '#/components/parameters/IdSolicitud'
+      responses:
+        '200':
+          description: Detalle de la solicitud
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Solicitud'
+
+    patch:
+      tags: [Solicitudes]
+      summary: Editar solicitud (solo en estado REGISTRADA)
+      parameters:
+        - $ref: '#/components/parameters/IdSolicitud'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EditarSolicitudRequest'
+      responses:
+        '200':
+          description: Solicitud actualizada
+
+  /solicitudes/{id}/acciones:
+    post:
+      tags: [Acciones]
+      summary: Ejecutar acción sobre solicitud
+      parameters:
+        - $ref: '#/components/parameters/IdSolicitud'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccionSolicitudRequest'
+      responses:
+        '200':
+          description: Acción ejecutada correctamente
+
+  /solicitudes/{id}/eventos:
+    get:
+      tags: [Eventos]
+      summary: Obtener historial de eventos de la solicitud
+      parameters:
+        - $ref: '#/components/parameters/IdSolicitud'
+      responses:
+        '200':
+          description: Lista de eventos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventosResponse'
+
+  /usuarios:
+    get:
+      tags: [Usuarios]
+      summary: Listar usuarios
+      responses:
+        '200':
+          description: Lista de usuarios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Usuario'
+
+  /asistencias/clasificacion:
+    post:
+      tags: [Asistencias]
+      summary: Obtener sugerencia automática de clasificación
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AsistenciaClasificacionRequest'
+      responses:
+        '200':
+          description: Sugerencia generada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsistenciaClasificacionResponse'
+
+components:
+
+  parameters:
+    IdSolicitud:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+
+  schemas:
+
+    Solicitud:
+      type: object
+      properties:
+        id:
+          type: integer
+        titulo:
+          type: string
+        descripcion:
+          type: string
+        estado:
+          $ref: '#/components/schemas/EstadoSolicitud'
+        prioridad:
+          $ref: '#/components/schemas/Prioridad'
+        tipoId:
+          type: integer
+        solicitanteId:
+          type: integer
+        responsableId:
+          type: integer
+        fechaCreacion:
+          type: string
+          format: date-time
+        fechaActualizacion:
+          type: string
+          format: date-time
+
+    CrearSolicitudRequest:
+      type: object
+      required: [titulo, descripcion, tipoId, solicitanteId]
+      properties:
+        titulo:
+          type: string
+        descripcion:
+          type: string
+        tipoId:
+          type: integer
+        solicitanteId:
+          type: integer
+
+    EditarSolicitudRequest:
+      type: object
+      properties:
+        titulo:
+          type: string
+        descripcion:
+          type: string
+
+    AccionSolicitudRequest:
+      type: object
+      required: [accion, version]
+      properties:
+        accion:
+          $ref: '#/components/schemas/TipoAccion'
+        version:
+          type: integer
+        datos:
+          type: object
+          additionalProperties: true
+
+    EventosResponse:
+      type: object
+      properties:
+        eventos:
+          type: array
+          items:
+            $ref: '#/components/schemas/Evento'
+
+    Evento:
+      type: object
+      properties:
+        fecha:
+          type: string
+          format: date-time
+        tipoEvento:
+          type: string
+        usuarioId:
+          type: integer
+        detalle:
+          type: string
+
+    Usuario:
+      type: object
+      properties:
+        id:
+          type: integer
+        nombre:
+          type: string
+        rol:
+          type: string
+        activo:
+          type: boolean
+
+    AsistenciaClasificacionRequest:
+      type: object
+      required: [descripcion]
+      properties:
+        descripcion:
+          type: string
+        canal:
+          type: string
+
+    AsistenciaClasificacionResponse:
+      type: object
+      properties:
+        tipoSugerido:
+          type: integer
+        prioridadSugerida:
+          $ref: '#/components/schemas/Prioridad'
+        explicacion:
+          type: string
+        confianza:
+          type: number
+          format: float
+
+    RespuestaPaginadaSolicitudes:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Solicitud'
+        meta:
+          type: object
+          properties:
+            totalRegistros:
+              type: integer
+            paginaActual:
+              type: integer
+            totalPaginas:
+              type: integer
+
+    EstadoSolicitud:
+      type: string
+      enum:
+        - REGISTRADA
+        - CLASIFICADA
+        - EN_ATENCION
+        - ATENDIDA
+        - CERRADA
+        - RECHAZADA
+        - CANCELADA
+        - ESCALADA
+
+    Prioridad:
+      type: string
+      enum:
+        - BAJA
+        - MEDIA
+        - ALTA
+        - CRITICA
+
+    TipoAccion:
+      type: string
+      enum:
+        - CLASIFICAR
+        - ASIGNAR
+        - INICIAR_PROCESO
+        - RESOLVER
+        - CERRAR
+        - RECHAZAR
+        - CANCELAR
+        - REABRIR
+        - ESCALAR
